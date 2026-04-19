@@ -1,0 +1,45 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: TravelerHistory service - attaches GET /traveler/history to POJOS-GW.
+Parameters:
+  PojosApiId:
+    Type: String
+    Description: Shared POJOS-GW HTTP API ID
+  PojosAuthorizerId:
+    Type: String
+    Description: Shared POJOS JWT authorizer ID
+Globals:
+  Function:
+    Runtime: python3.11
+    Timeout: 10
+    MemorySize: 128
+Resources:
+  TravelerHistoryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: handler.lambda_handler
+  TravelerHistoryIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref PojosApiId
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt TravelerHistoryFunction.Arn
+      PayloadFormatVersion: '2.0'
+  TravelerHistoryRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref PojosApiId
+      RouteKey: 'GET /traveler/history'
+      AuthorizationType: NONE
+      Target: !Sub 'integrations/${TravelerHistoryIntegration}'
+  TravelerHistoryInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref TravelerHistoryFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PojosApiId}/*/*/*'
+Outputs:
+  TravelerHistoryFunctionArn:
+    Value: !GetAtt TravelerHistoryFunction.Arn
